@@ -1,0 +1,862 @@
+---
+title: "Lab2_w203: Transit Costs Projects"
+author: "Team Eels - Parastoo Javadi, Stephen Bridwell, Prakash Krishnan, Justin Wong"
+date: "Last Updated 12/06/2021 10am PST"
+
+output:
+  bookdown::pdf_document2: 
+    toc: true
+---
+
+\clearpage
+
+# Introduction
+Investing in rapid transit systems is very popular across the globe and such systems oftentimes drive economic value by driving urban growth. Rapid transit systems include subways, metros, and light rails. In addition, a rapid transit system in dense urban population centers can provide low pollution transportation options as building more and more roads is not feasible.
+
+Unlike roadway projects that are relatively small, light rail projects have many more distinct parts including complex project management, design, civil structures, tracks, signaling systems, maintenance facilities, etc. However, despite these similarities, the cost per kilometer is very different across continents.
+
+In this paper, we aim to identify the key contributing features that impact the cost of a rapid transit project. Given that the cost per kilometer of a rapid transit system in New York, USA is 20 times more than Seoul, South Korea, we are particularly interested in exploring the different factors that affect the cost of a rapid transit project and how they differ across geographic locations.
+
+The target audience for this study will include:
+
+- Direct audience: Researchers, planners, journalists, advocates, elected officials, and others interested in contextualizing transit-infrastructure costs and fighting for better projects.
+
+
+The remainder of this paper is organized in the following way. Section 2 states our key research questions. Section 3 describes the data background and origination, how we developed a model framework using the available data, and the variables influencing the models we developed. Section 4 summarizes the research design and the entire process of the experiments done in the design. Section 5 briefly performs exploratory data analysis for additional context regarding the infrastructure projects dataset, motivating how the model was build and the regression analysis. Section 6 tests the classical linear model assumptions for the best Global, Asia, and Europe model from the previous section. Section 7 discusses the different models created and resulting comparisons across the chosen models. Section 8 elaborates on certain statistical and structural limitations of the models. Finally, in Section 9, we discuss the main key findings and future implications of our results.
+
+
+
+# Research Question
+The intent of our research project is to investigate:
+
+1. What are the key contributing features that impact the cost of a rapid transit project?
+
+2. How do factors affecting the cost of a rapid transit project differ across different geographic locations?
+
+
+# Data and Variable Definitions
+
+## Data Background
+
+To investigate the research question, we studied the work done by researchers at [NYU Marron Institute](https://transitcosts.com/about/).
+
+The dataset for the analysis is from https://transitcosts.com/data/ and maintained by Transit Costs Project. The dataset includes data collected from over 600 transit projects across the globe and includes 58 countries and totals more than 11,000 km of urban rail built since the late 1990s.
+
+For each infrastructure project, data points included the location of the project, cost of a project, length of the transit line in kilometers, design features such as a number of stations, tunnels, elevated tracks, and length of project time from start to finish. The costs were adjusted for purchasing power parity (PPP), inflation, and currency exchange. This allows for the comparison of costs across transit projects and also across the globe.
+
+In reviewing the background literature (https://transitcosts.com/cases/), we developed the following model framework to answer the research question.
+
+## Model Framework from Data
+
+We recognize from the literature review that type of project management, politics, resource level, and skills play an important role in project execution and management and ultimately to project duration and costs. Meanwhile, some variables in the dataset appear to be colinear and proxies for one another, representing the same or similar attribute of a project.
+
+### Included in our Model Framework
+In order to simplify model complexity for this research study, the following factors are considered to understand the influence of the project cost:
+
+•	Location of the Project
+
+•	Length of the Project in Terms of Kms of line length
+
+•	Duration for the project
+
+•	Tunnel Length in the Project as tunnel increases costs significantly
+
+•	Number of Stations in the Project
+
+### Excluded from our Model Framework
+Additionally, the typical project cost of a rapid-transit project includes both tangible and intangible costs. Because such features are often difficult to measure, such costs were not available in the dataset and not factored in the modeling. They include:
+
+•	Project Management
+
+•	Design and Engineering
+
+•	Delivery
+
+•	Politics
+
+•	Resource level
+
+
+## Variable Definitions
+**Project years** is a calculated field representing the difference between the start year and end year of each project as an integer. 
+
+**Tunnel length** is the length of the tunnels on the project measured in km and represented as a decimal.
+
+**Stations** is the number of stations on the project and represented as an integer.
+
+**Overall length** is the length in service, excluding non-revenue tracks toward railyards and train tracks measured in km and represented as a decimal.
+
+**Realcost** includes all construction and construction-related expenditures measured in US dollars adjusted for inflation and represented as a decimal.
+
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(tidyverse)
+library(magrittr)
+library(ggplot2)
+library(patchwork)
+library(sandwich)
+library(lmtest)
+library(fec16)
+library(stargazer)
+library(gridExtra)
+```
+
+```{r}
+projects_all <- read.csv(file = 'data/only_tunnels_and_only_stations-PK.csv')
+projects <- projects_all # "global" projects
+projects_EU <- filter(projects, Continent=="Europe")
+projects_AS <- filter(projects, Continent=="Asia")
+```
+
+
+```{r}
+project_years <- projects$"Endyear" - projects$"Startyear"
+projectAS_years <- projects_AS$"Endyear" - projects_AS$"Startyear"
+projectEU_years <- projects_EU$"Endyear" - projects_EU$"Startyear"
+
+continent_feat <- factor(projects$"Continent")
+```
+
+\clearpage
+
+# Research Design
+After consideration of the transit cost data and the research question, we decided to use a descriptive model to test the statistical power of time (years), tunnels, and stations relative to our dependent variable, realcost, on each transit project.
+
+We started with EDA to remove records that did not have the necessary information (i.e. cost, # of tunnels, # of stations, location, etc.) to consider in the model testing. The records removed had null values in a critical dimension or metric field. We then created two columns to establish the length in time (years) for each project by calculating the difference between the end year and start year, and continent to investigate the dimensions with statistical significance relative to project cost in a region.
+
+After cleansing the data, we used ggplot/geom_histogram to understand the distribution of the variables. We established that a log transform should be applied to give realcost a normal distribution. We then used ggplot/geom point to represent the linear relationship between realcost and potential independent variables. Variables considered were Length, TunnelDec, Stations, Elevated, Atgrade, and Tunnel.
+
+After considering the plots we created linear models and performed z tests(coeftest in R) to understand the fit with regards to the p-value < .05 and overall statistical significance for each variable in each of the models. This approach was applied on the global dataset along with the Asia and Europe regions, which had enough sample size to pass I.I.D. assumptions.
+
+Once the coeftest analysis was complete, we sought to understand fit. We built plots to represent the Residuals vs. Fitted, Normal Q-Q, Scale-Location, and Residuals vs. Leveraged. To test for bias, ggplots were built to compare the predicted vs residuals for each model. Once the bias within each model was established, we ran the stargazer function to calculate the R squared value to compare between each model.
+
+Finally, we tested the CLM assumptions which were IID Data, No Perfect Collinearity, Linear Conditional Expectation, Homoskedastic Errors, and Normally Distributed Errors. Once the fit, bias, and assumptions were considered for each model, we decided on the best fitting model that had statistically significant variables, and high R squared values to explain the most variation in realcost. The coefficients for the independent variables were taken to establish which design elements best describe the total construction cost.
+
+
+# Model Building Process
+In consideration of the model building process, we will want to measure the independent variables with the strongest statistical significance and highest explanation for the variation in our dependent variable (realcost) for the transit projects. Our goal is to understand the contributing features that impact realcost and understand if these features change when considering realcost for specific regions of the world. We decided to answer the research questions through 3 regional experiments: Global, Asia, and Europe.
+
+## Models At a Glance
+We experimented different models on three distinct categories in the cleaned dataset: Global, Asia, and Europe. Ultimately, we made tradeoffs between statistical significance, collinearity between variables, and R-Squared values. At a glance, these are the models we concluded were the strongest for the particular data group.
+
+\clearpage
+
+### Global
+```{r df-drop-ok-global, class.source="bg-success"}
+lm(log(Realcost) ~ log(project_years) + log(Tunnel) + log(Stations), data=projects)
+```
+
+> Independent variables - project years, tunnel length, stations
+
+> Dependent variable - realcost
+
+
+### Asia
+```{r df-drop-ok-asia, class.source="bg-success"}
+lm(log(Realcost) ~ log(projectAS_years) + log(Tunnel) + log(Stations) + log(Length), data = projects_AS)
+```
+
+> Independent variables - project years, tunnel length, stations, overall length
+
+> Dependent variable - realcost
+
+
+### Europe
+```{r df-drop-ok-europ, class.source="bg-success"}
+lm(log(Realcost) ~log(projectEU_years) + log(Tunnel), data = projects_EU)
+```
+
+> Independent variables - project years, tunnel length
+
+> Dependent variable - realcost
+
+
+
+## Exploratory Data Analysis
+By removing records with null values in a critical dimension, we are able to extract relationships between realcost and other variables. As we can see in the following plots, certain patterns and relations emerge.
+
+Here are some notable observations:
+
+- log(Real cost) is normal.
+
+- log(project years) is normal.
+
+- log(length) and project cost is nearly linear, which is intuitive from an economics perspective because the longer an infrastructure takes, the more costly it is.
+
+- log(stations) and project cost is linear because the more stations an infrastructure project has, the more expensive the project is to build the stations.
+
+- Only Asia and Europ had over 50 projects in the dataset.
+
+
+
+```{r}
+## EDA Plots
+plot_cost <- ggplot(projects, aes(x = log(Realcost))) +
+  geom_histogram(aes(y = ..density..),
+                 colour = "grey", fill = "grey") +
+  labs(title="Density Distribution of\nlog(Realcost)") +
+  geom_density(fill="#37BFF5")
+
+plot_years <- ggplot(projects, aes(x = log(project_years))) +
+  geom_histogram(aes(y = ..density..),
+                 binwidth = .1, colour = "grey", fill = "grey") +
+  labs(title="Density Distribution of\nlog(project years)") +
+  geom_density(alpha = .5, fill="#37BFF5")
+
+# Scatter plots of Project Cost vs other variables
+plot_len_cost <- ggplot(projects, aes(y=log(Realcost), x=log(Length))) + 
+  geom_point() + 
+      labs(y="log(Project Cost)", x="log(Length)",
+       title="log(Project Cost) vs log(Length)") + 
+      theme(text=element_text(size=21)) + 
+  geom_smooth()
+
+plot_Tun_cost <- ggplot(projects, aes(y=log(Realcost), x=(TunnelDec))) + 
+  geom_point() + 
+      labs(y="log(Project Cost)", x="Tunnel Percentage",
+       title="log(Project Cost) vs Tunnel Percentage") + 
+      theme(text=element_text(size=21)) + 
+  geom_smooth()
+
+plot_station_cost <- ggplot(projects, aes(y=log(Realcost), x=log(Stations))) + 
+  geom_point() + 
+      labs(y="log(Project Cost)", x="log(Number of Stations)",
+       title="log(Project Cost) vs log(Stations)") + 
+      theme(text=element_text(size=21)) + 
+  geom_smooth()
+
+plot_elevated_cost <- ggplot(projects, aes(y=log(Realcost), x=Elevated)) + 
+  geom_point() + 
+      labs(y="log(Project Cost)", x="Elevated Track #",
+       title="log(Project Cost) vs Elevated Track #") + 
+      theme(text=element_text(size=21)) + 
+  geom_smooth()
+
+plot_log_tun_cost <- ggplot(projects, aes(y=log(Realcost), x=log(Tunnel))) + 
+  geom_point() + 
+      labs(y="log(Project Cost)", x="Tunnel Length",
+       title="log(Project Cost) vs log(Tunnel Length)") + 
+      theme(text=element_text(size=21)) + 
+  geom_smooth()
+
+plot_start_cost <- ggplot(projects, aes(y=log(Realcost), x=project_years)) + 
+  geom_point() + 
+      labs(y="log(Project Cost)", x="Project duration in years",
+       title="log(Project Cost) vs project duration") + 
+      theme(text=element_text(size=21)) + 
+  geom_smooth()
+
+# barplot of counts of continents
+plot_continent_counts <- ggplot(projects, aes(x=continent_feat)) + 
+                        geom_bar() + 
+                            labs(x="Continent",
+                             title="Count by continent")
+```
+
+When looking at the dataset in aggregate, we're able to see normality in distribution of real cost and project years. However, the count of projects in each continent shows a different story and we see most of the infrastructure projects in the dataset are in Asia or Europe. 
+
+```{r, message=FALSE, warning=FALSE}
+(plot_cost | plot_years) /
+(plot_continent_counts)
+```
+
+When plotting the linear relationship of each of these variables against realcost, the tunnel percentage, elevated track #, and atgrade did not show a clear relationship to cost or a trend that could be solved using a transform. Another problem was specifically in the collinearity that overall length has with stations and tunnel length variables. We chose not to use the overall length variable for the global model as the overall length diminishes the effect of the number of stations and tunnel length (model 6 compared to model 7 in the analysis). In the Asia experiment, collinearity was also the case for the overall length and tunnel length variables. However, we decided to keep overall length in the end as tunnel length was still statistically significant still and the model with overall length explained the highest amount of variation in realcost at .805. The Europe experiment had the strongest effect of collinearity between tunnel length and overall length/stations. This is why the model for the Europe experiment is best fit with project years and tunnel length specifically.
+
+In each case in order to achieve a normal distribution and a linear relationship to realcost a log transform had to be performed on each of the variables. Specifically, log(Realcost), log(project_years), log(Stations), log(Tunnel), and log(Length). This was revealed when plotting the density/linear relationships of each variable and correlation to realcost. The transform decision was also clear when running coeftest/stargazer to determine the statistical significance and coefficients for each model fit when considering the variables.
+
+```{r, message=FALSE, warning=FALSE, fig.height = 28, fig.width = 20}
+(plot_len_cost | plot_Tun_cost) /
+(plot_station_cost | plot_elevated_cost) /
+(plot_log_tun_cost | plot_start_cost)
+```
+
+## Building the Models
+To understand the covariates that would help us decide which of the contributing features would impact the cost of a rapid transit project, we first performed EDA (exploratory data analysis). The variables considered included the overall length, tunnel percentage, tunnel length, stations, elevated track #, years to complete, and atgrade for each transit project.
+
+
+Each of our choices for EDA was supported by visual tools or statistical tests. We decided to remove nearly 300 records from the dataset as a data cleansing step after seeing that there were many variables with null values that would cause bias in the distribution and statistical power in the model fit.
+
+We created a continent field to compare regions because the sample size was too small for many of the countries to perform any country specific regression analysis. We also built the project years field by subtracting the end year and start year of each transit project.
+
+Visually we used ggplot to represent the distribution and relationships of each proposed independent variable to cost. This allowed us to understand which variables did not show a relationship to cost or would require transformations to achieve a normal distribution, as shown in the Exploratory Data Analysis section.
+
+We then built separate models testing the fit for each combination of variables using stargazer. We supported this with separate coeftest to see the specific p value for each independent variable. We followed this step with plots showing the Residuals vs Fitted, Normal Q-Q, Scale-Location, and Residuals vs Leverage relationships to test for fit. When testing for bias we compared the predicted vs residuals for the models, looking for a relatively flat trend line in the relationship. Last, the 5 CLM assumptions were tested to ensure we did not miss violations for I.I.D., Perfect Collinearity, Linear Conditional Expectation, Homoskedastic Errors, or Normally Distributed Errors.
+
+
+## Creating a Global Model
+The global model uses all projects as datapoints from the dataset. We implemented seven different models and compared them against each other, using R-Squared and feature statistical significance as the gauge to determine the best estimator.
+
+> Note: Below in the model equations, the bolded model is the best model selected out of the Global models.
+
+
+### Global Models
+```{=latex}
+$ GL1 = log(Realcost) = \beta_0 + \beta_1log(project\_years) $
+
+$ GL2 = log(Realcost) = \beta_0 + \beta_1log(Tunnel) $
+
+$ GL3 = log(Realcost) = \beta_0 + \beta_1log(Stations) $
+
+$ GL4 = log(Realcost) = \beta_0 + \beta_1log(Length) $
+
+$ GL5 = log(Realcost) = \beta_0 + \beta_1log(project\_years) + \beta_2log(Tunnel) $
+
+$ \textbf{GL6} = log(Realcost) = \beta_0 + \beta_1log(project\_years) + \beta_2log(Tunnel) + \beta_3log(Stations) $
+
+$ GL7 = log(Realcost) = \beta_0 + \beta_1log(project\_years) + \beta_2log(Tunnel) + \beta_3log(Stations + 1) + \beta_4log(Length) $
+```
+
+\clearpage
+
+## Creating Continental Models - Asia and Europe
+Since only Asia and Europe had over 100 data points, we built models specific to these continents. The continental models focused only on projects in Europe and Asia separately. Seven Asia models and nine Europe models were implemented and compared against each other, similar to the Global Models.
+
+> Note: Below in the model equations, the bolded model is the best model selected out of the Asia and Europe models.
+
+### Asia Models
+```{=latex}
+$ AS1 = log(Realcost) = \beta_0 + \beta_1log(projectAS\_years) $
+
+$ AS2 = log(Realcost) = \beta_0 + \beta_1log(Tunnel) $
+
+$ AS3 = log(Realcost) = \beta_0 + \beta_1log(Stations) $
+
+$ AS4 = log(Realcost) = \beta_0 + \beta_1log(Length) $
+
+$ AS5 = log(Realcost) = \beta_0 + \beta_1log(projectAS\_years) + \beta_2log(Tunnel) $
+
+$ AS6 = log(Realcost) = \beta_0 + \beta_1log(projectAS\_years) + \beta_2log(Tunnel) + \beta_3log(Stations) $
+
+$ \textbf{AS7} = log(Realcost) = \beta_0 + \beta_1log(projectAS\_years) + \beta_2log(Tunnel) + \beta_3log(Stations) + \beta_4log(Length) $
+```
+
+### Europe Models
+```{=latex}
+$ EU1 = log(Realcost) = \beta_0 + \beta_1log(projectEU\_years) $
+
+$ EU2 = log(Realcost) = \beta_0 + \beta_1log(Tunnel) $
+
+$ EU3 = log(Realcost) = \beta_0 + \beta_1log(Stations) $
+
+$ EU4 = log(Realcost) = \beta_0 + \beta_1log(Length) $
+
+$ \textbf{EU5} = log(Realcost) = \beta_0 + \beta_1log(projectEU\_years) + \beta_2log(Tunnel) $
+
+$ EU6 = log(Realcost) = \beta_0 + \beta_1log(projectEU\_years) + \beta_3log(Stations) $
+
+$ EU7 = log(Realcost) = \beta_0 + \beta_1log(projectEU\_years) + \beta_2log(Tunnel) + \beta_3log(Stations) $
+
+$ EU8 = log(Realcost) = \beta_0 + \beta_1log(projectEU\_years) + \beta_2log(Tunnel) + \beta_3log(Length) $
+
+$ EU9 = log(Realcost) = \beta_0 + \beta_1log(projectEU\_years) + \beta_2log(Tunnel) + \beta_3log(Stations) + \beta_4log(Length) $
+```
+
+
+```{r}
+# Global models
+
+model_1 = lm(log(Realcost) ~ log(project_years), data=projects)
+model_2 = lm(log(Realcost) ~ log(Tunnel), data=projects)
+model_3 = lm(log(Realcost) ~ log(Stations), data=projects)
+model_4 = lm(log(Realcost) ~ log(Length), data=projects)
+model_5 = lm(log(Realcost) ~ log(project_years) + log(Tunnel), data=projects)
+model_6 = lm(log(Realcost) ~ log(project_years) + log(Tunnel) + log(Stations), data=projects)
+model_7 = lm(log(Realcost) ~ log(project_years) + log(Tunnel) + log(Stations + 1) + log(Length), data=projects)
+models_gb<- list( "GL model 1"=model_1,
+                  "GL model 2"=model_2,
+                  "GL model 3"=model_3,
+                  "GL model 4"=model_4,
+                  "GL model 5"=model_5,
+                  "GL model 6"=model_6,
+                  "GL model 7"=model_7
+                      )
+se.model_1 = coeftest(model_1, vcov = vcovHC)[ , "Std. Error"]
+se.model_2 = coeftest(model_2, vcov = vcovHC)[ , "Std. Error"]
+se.model_3 = coeftest(model_3, vcov = vcovHC)[ , "Std. Error"]
+se.model_4 = coeftest(model_4, vcov = vcovHC)[ , "Std. Error"]
+se.model_5 = coeftest(model_5, vcov = vcovHC)[ , "Std. Error"]
+se.model_6 = coeftest(model_6, vcov = vcovHC)[ , "Std. Error"]
+se.model_7 = coeftest(model_7, vcov = vcovHC)[ , "Std. Error"]
+```
+```{r}
+# Asia models
+
+modelAS_1 <- lm(log(Realcost) ~log(projectAS_years) , data = projects_AS)
+modelAS_2 <- lm(log(Realcost) ~log(Tunnel), data = projects_AS)
+modelAS_3 <- lm(log(Realcost) ~log(Stations), data = projects_AS)
+modelAS_4 <- lm(log(Realcost) ~log(Length), data = projects_AS)
+modelAS_5 <- lm(log(Realcost) ~log(projectAS_years) + log(Tunnel) , data = projects_AS)
+modelAS_6 <- lm(log(Realcost) ~log(projectAS_years) + log(Stations)+ log(Tunnel), data = projects_AS)
+modelAS_7 <- lm(log(Realcost) ~log(projectAS_years) + log(Stations)+ log(Tunnel) + log(Length), data = projects_AS)
+models_asia        <- list( "AS model 1"=modelAS_1,
+                            "AS model 2"=modelAS_2,
+                            "AS model 3"=modelAS_3,
+                            "AS model 4"=modelAS_4, 
+                            "AS model 5"=modelAS_5,
+                            "AS model 6"=modelAS_6,
+                            "AS model 7"=modelAS_7
+                      )
+
+se.modelAS_1 = coeftest(modelAS_1, vcov = vcovHC)[ , "Std. Error"]
+se.modelAS_2 = coeftest(modelAS_2, vcov = vcovHC)[ , "Std. Error"]
+se.modelAS_3 = coeftest(modelAS_3, vcov = vcovHC)[ , "Std. Error"]
+se.modelAS_4 = coeftest(modelAS_4, vcov = vcovHC)[ , "Std. Error"]
+se.modelAS_5 = coeftest(modelAS_5, vcov = vcovHC)[ , "Std. Error"]
+se.modelAS_6 = coeftest(modelAS_6, vcov = vcovHC)[ , "Std. Error"]
+se.modelAS_7 = coeftest(modelAS_7, vcov = vcovHC)[ , "Std. Error"]
+```
+```{r}
+# Europe models
+
+modelEU_1 <- lm(log(Realcost) ~ log(projectEU_years), data = projects_EU)
+modelEU_2 <- lm(log(Realcost) ~log(Tunnel), data = projects_EU)
+modelEU_3 <- lm(log(Realcost) ~log(Stations), data = projects_EU)
+modelEU_4 <- lm(log(Realcost) ~log(Length), data = projects_EU)
+modelEU_5 <- lm(log(Realcost) ~log(projectEU_years) + log(Tunnel), data = projects_EU)
+modelEU_6 <- lm(log(Realcost) ~log(projectEU_years) + log(Stations), data = projects_EU)
+modelEU_7 <- lm(log(Realcost) ~log(projectEU_years) + log(Tunnel) + log(Stations), data = projects_EU)
+modelEU_8 <- lm(log(Realcost) ~log(projectEU_years) + log(Tunnel) + log(Length), data = projects_EU)
+modelEU_9 <- lm(log(Realcost) ~log(projectEU_years) + log(Tunnel) + log(Stations) + log(Length), data = projects_EU)
+
+models_eu     <- list("EU model 1"=modelEU_1,
+                      "EU model 2"=modelEU_2,
+                      "EU model 3"=modelEU_3,
+                      "EU model 4"=modelEU_4, 
+                      "EU model 5"=modelEU_5,
+                      "EU model 6"=modelEU_6,
+                      "EU model 7"=modelEU_7,
+                      "EU model 8"=modelEU_8,
+                      "EU model 9"=modelEU_9
+                      )
+
+se.modelEU_1 = coeftest(modelEU_1, vcov = vcovHC)[ , "Std. Error"]
+se.modelEU_2 = coeftest(modelEU_2, vcov = vcovHC)[ , "Std. Error"]
+se.modelEU_3 = coeftest(modelEU_3, vcov = vcovHC)[ , "Std. Error"]
+se.modelEU_4 = coeftest(modelEU_4, vcov = vcovHC)[ , "Std. Error"]
+se.modelEU_5 = coeftest(modelEU_5, vcov = vcovHC)[ , "Std. Error"]
+se.modelEU_6 = coeftest(modelEU_6, vcov = vcovHC)[ , "Std. Error"]
+se.modelEU_7 = coeftest(modelEU_7, vcov = vcovHC)[ , "Std. Error"]
+se.modelEU_8 = coeftest(modelEU_8, vcov = vcovHC)[ , "Std. Error"]
+```
+\clearpage
+
+# Testing the 5 Classical Linear Model Assumptions
+
+## Testing 5 CLM Assumptions - Global Model
+
+1. IID Sampling 
+
+> This dataset doesn't meet IID requirements, becuase of the following:
+
+> The data was collected from many different sources; however, the researchers stated that they prefered to use the data from the most recent source. This could undermine random sampling because data from some certain countries might have more recent and accurate information than the other regions. 
+
+> Also, the projects in same countries and continents tend to show similar project costs which shows clustering. 
+
+  2. Linear Conditional Expectation 
+  
+```{r, message=FALSE}
+
+projects %>% 
+  mutate(
+    model_6_preds = predict(model_6), 
+    model_6_resids = resid(model_6)
+  ) %>% 
+  ggplot(aes(model_6_preds, model_6_resids)) + 
+  geom_point() + 
+  stat_smooth()
+```
+
+> The model shows no obvious residuals' deviation from 0 on both side of the x-axis. This test confirms that the linear condition expectation is met in this model. 
+  3. No Perfect Collinearity
+  
+```{r}
+model_6$coefficients
+```
+
+> By looking at the model coefficient we see that R hasn't dropped any of the variables. This tells us that there is no perfect collinearity.  This assumption also includes the requirement that a BLP exists, which may not happen if there are heavy tails.  In this case, though, we don't see any distributions that look like they have unusually low or high values.
+
+  4. Homoskedastic Errors 
+```{r}  
+plot(model_6, which=3)
+```
+
+> Using the scale-location plot, homoskedasticity should show up on this plot as a flat smoothing curve; however, the plot shows that on the left side of the plot the residuals are spreading wider, but as the model progress to the right side the residuals starts to get closer to a normal distribution and the line becomes horizontal. Despite what is stated above, because the angle is not steep, it suggests there is no major problem with homoskedasticity. 
+
+  5. Normally Distributed Errors
+  
+```{r, message=FALSE}
+plot_one <- projects %>% 
+  ggplot(aes(x = resid(model_6))) + 
+  geom_histogram()
+
+plot_two <- projects %>% 
+  ggplot(aes(sample = resid(model_6))) + 
+  stat_qq() + stat_qq_line()
+grid.arrange(plot_one, plot_two, nrow=2)
+```
+
+> Although there is a slight deviation on both side of the Q-Q plot. The residuals distribution matches a normal distribution without any major deviations from normality. The only concern would be the data point on the top right side of the Q-Q plot that shows to be a little off. 
+
+\clearpage
+
+## Testing 5 CLM Assumptions - Asia Model
+
+1. IID Sampling 
+
+> This dataset doesn't meet IID requirements, becuase of the following:
+
+> The data was collected from many different sources; however, the researchers stated that they prefered to use the data from the most recent source. This could undermine random sampling because data from some certain countries might have more recent and accurate information than the other regions. 
+
+> Also, the projects in same countries tend to show similar project costs which shows clustering. 
+
+  2. Linear Conditional Expectation 
+  
+```{r, message=FALSE}
+
+projects_AS %>% 
+  mutate(
+    model_7_preds = predict(modelAS_7), 
+    model_7_resids = resid(modelAS_7)
+  )%>%
+  ggplot(aes(model_7_preds, model_7_resids)) + 
+  geom_point() + 
+  stat_smooth()
+```
+> The model shows no obvious residuals' deviation from 0 on both side of the x-axis. This test confirms that the linear condition expectation is met in this model. 
+  3. No Perfect Collinearity
+  
+```{r}
+modelAS_7$coefficients
+```
+
+> By looking at the model coefficient we see that R hasn't dropped any of the variables. This tells us that there is no perfect collinearity.  This assumption also includes the requirement that a BLP exists, which may not happen if there are heavy tails.  In this case, though, we don't see any distributions that look like they have unusually low or high values.
+
+ 4. Homoskedastic Errors 
+```{r}  
+plot(modelAS_7, which=3)
+```
+
+> Using the scale-location plot, homoskedasticity should show up on this plot as a flat smoothing curve. The above plot shows an almost horizontal line which suggests that there is no major problem with heteroskedasticity. 
+
+ 5. Normally Distributed Errors
+  
+```{r, message=FALSE}
+plot_three <- projects_AS %>% 
+  ggplot(aes(x = resid(modelAS_7))) + 
+  geom_histogram()
+
+plot_four <- projects_AS %>% 
+  ggplot(aes(sample = resid(modelAS_7))) + 
+  stat_qq() + stat_qq_line()
+grid.arrange(plot_three, plot_four, nrow=2)
+```
+
+> In both plots, the residual distribution shows a strong deviation from normality on the right side of the plot. This would reject the normally distributed errors requirement of CLM; however, because of the large sample size and central limit theorem we can say the the residuals are asymptotically normally distributed.
+
+\clearpage
+
+## Verifying 5 CLM Assumptions - Europe Model
+
+1. IID Sampling 
+
+> This dataset doesn't meet IID requirements, becuase of the following:
+
+> The data was collected from many different sources; however, the researchers stated that they prefered to use the data from the most recent source. This could undermine random sampling because data from some certain countries might have more recent and accurate information than the other regions. 
+
+> Also, the projects in same countries tend to show similar project costs which shows clustering. 
+
+  2. Linear Conditional Expectation 
+  
+```{r, message=FALSE}
+
+projects_EU %>% 
+  mutate(
+    model_7_preds = predict(modelEU_5), 
+    model_7_resids = resid(modelEU_5)
+  )%>%
+  ggplot(aes(model_7_preds, model_7_resids)) + 
+  geom_point() + 
+  stat_smooth()
+```
+
+>The model shows no obvious residuals' deviation from 0. This test confirms that the linear condition expectation is met in this model. 
+
+  3. No Perfect Collinearity
+  
+```{r}
+modelEU_5$coefficients
+```
+
+> By looking at the model coefficient we see that R hasn't dropped any of the variables. This tells us that there is no perfect collinearity.  This assumption also includes the requirement that a BLP exists, which may not happen if there are heavy tails.  In this case, though, we don't see any distributions that look like they have unusually low or high values.
+
+ 4. Homoskedastic Errors 
+```{r}  
+plot(modelEU_5, which=3)
+```
+
+> Using the scale-location plot, homoskedasticity should show up on this plot as a flat smoothing curve. The above plot shows an almost horizontal line which suggests that there is no major problem with heteroskedasticity. 
+
+ 5. Normally Distributed Errors
+  
+```{r, message=FALSE}
+plot_three <- projects_EU %>% 
+  ggplot(aes(x = resid(modelEU_5))) + 
+  geom_histogram()
+
+plot_four <- projects_EU %>% 
+  ggplot(aes(sample = resid(modelEU_5))) + 
+  stat_qq() + stat_qq_line()
+grid.arrange(plot_three, plot_four, nrow=2)
+```
+
+> The Q-Q plot and resisual histogram, show a normal residual distribution that meets the normally distributed errors requirement of CLM.
+
+\clearpage
+
+# Results and Comparing the Chosen Models
+Overall, we see that project years and tunnels play a significant role in the Global, Asia, and Europe models, contributing to the cost of a rapid transit project.
+
+By comparing the coefficients and these two variables appearing in all three developed models, we see the log(project years) in different magnitudes in all the models, showing variance is emerging from something else not accounted for in the data. The t-test coefficients show us the statistical significance is .001. Intuitively, this also makes sense because projects that span multiple years may result in complexities that increase the cost of a rapid transit project. However, because of how different this coefficient was across the different models, we also see regional differences that make cost structures so different.
+
+Further, tunnels, stations, and length all seem to be proxies for each other, as they would all be positively correlated from an economic point of view; the more tunnels and stations an infrastructure project would have, presumably the length would be longer to fit all the tunnels and stations. As a result, we cannot fully determine to what extent tunnels, stations and length cause differences in the cost of rapid transit projects across the different continents in our experiments. Moreover, because the t-test of these coefficients all show .001 statistical significance, we can infer that geographic locations do in fact cause a significant difference in cost.
+
+## Global Model
+>  We chose the log transformation for independent and dependent variables, because first, we don't think there is a linear relationship between them. Second, all of the variables have a positive, non-zero distribution, and the log transformation made their distribution more symmetric and normal.
+
+> In model 6, all three coefficients are statistically significant so we can conclude that there is a statistically meaningful relationship between log transformation of real cost and duration of project, length of tunnel, and number of stations. The coefficients of log(project_years), log(Tunnel), and log(Stations) are all statistically significant and positive, which means an increase in any of the dependent variables is associated with an increase in real cost at an increasing rate.
+
+> According to the regression table, project_years is statistically significant, and as the number of predictors included in the model 6 increases, the estimated relationship between real cost and education tends to become less positive. This is evidence of the robustness of our model 6. The table also shows that the adjusted $R^2$ is increasing which means that the model is becoming better in explaining the variance of the data. 
+
+> Our results show that the addition of the length variable diminishes the effect of the number of stations and that shows there is a collinearity between the length and number of stations. 
+
+
+
+## Asia Model
+
+> In modelAS_7, all four coefficients are statistically significant so we can conclude that there is a statistically meaningful relationship between log transformation of real cost and duration of project, length of tunnel, and number of stations. The coefficients of log(project_years), log(Tunnel), log(Stations), log(length) are all statistically significant and positive, which means an increase in any of the dependent variables is associated with an increase in real cost at an increasing rate.
+
+> According to the regression table, project_years is statistically significant, and as the number of predictors included in the model 6 increases, the estimated relationship between real cost and project years tends to become less positive. This is evidence of the robustness of our model 6. The table also shows that the adjusted $R^2$ is increasing which means that the model is becoming better in explaining the variance of the data. 
+
+
+## Europe Model
+
+> In modelEU_5, both coefficients are statistically significant so we can conclude that there is a statistically meaningful relationship between log transformation of real cost and duration of project, length of tunnel. Both coefficients of log(project_years) and log(Tunnel) are statistically significant and positive, which means an increase in any of the two variables is associated with an increase in real cost at an increasing rate.
+
+> According to the regression table, project_years is statistically significant, and as the number of predictors included in the model 5 increases, the estimated relationship between real cost and project_years tends to become less positive. This is evidence of the robustness of our model 5. The table also shows that the adjusted $R^2$ is increasing which means that the model is becoming better in explaining the variance of the data. 
+
+> Our results show that the addition of both number of stations and length variables diminishes the effect of number of tunnel lengths and that shows there is a collinearity between the length, number of stations and tunnel_length. 
+
+Here, the model coefficients are shown:
+```{r}
+#final_models = list("Global Model"=model_6,
+#                    "Asia Model"=modelAS_7,
+#                    "Europe Model"=modelEU_5)
+#for (i in seq_along(final_models)) {
+#  print(names(final_models)[i])
+#  print(coeftest(final_models[[i]], vcovHC))
+#}
+```
+```{r final_models_comparison, results = "asis"}
+stargazer(
+model_6,
+modelAS_7,
+modelEU_5,
+type = 'latex', header=FALSE, 
+star.cutoffs = c(0.05, 0.01, 0.001),
+se = list(se.model_6, se.modelAS_7,se.modelEU_5),
+column.labels=c("GL6", "AS7", "EU5")
+)
+
+```
+\clearpage
+
+# Limitations of the Model
+
+## Statistical Limitations
+
+- The sample data only included all transit projects for which public information was available through a variety of sources.
+
+- Large samples were available for Asia and Europe and N.America, S.America and ANZ samples were much smaller.
+
+- Collinearity between length and real cost, length with stations and tunnel length.
+
+- Needed transformation (log) to ensure normal distribution.
+
+## Strutural Limitations
+
+- In-tangible costs like quality of project management, availability of skilled resources and local politics have major bearings on project costs.
+
+- As an example in reviewing the Green Line Extension in Boston, much of the cost increases were attributed to change from a Democratic Governor to a Republican Governor, cancellation of the project and laying off critical project management personnel.
+
+- Large number of records did not have reliable data.
+
+# Conclusion
+
+As shown, we see how different the optimal model and model coefficients have become based on the data alone. This shows the regional differences that motivated this study. We found statistical significance in all the transformed features we've chosen through our experiments in the dataset.
+
+In conclusion, our key finding shows that project duration and tunnel length have the strongest support for impacting the cost of a rapid transit project. Additionally, while we found statistically significant support for the other features, such as stations and project length, the variability in the coefficients points to variance in the datasets used, which may indicate significant differences in costs due to the geographic location of a project.
+
+The implications for this study shows that projects should minimize tunnel length and project duration to have cost-effective transit systems.
+
+\clearpage
+
+# Appendix (for reference only)
+
+## References
+1.      Transit Cost Project - We are a group of researchers under the umbrella of the NYU Marron Institute of Urban Management, but our team is spread across the globe. Our research is supported by Arnold Ventures, Andrew and Carolyn Chatham, and others (https://transitcosts.com/about/)
+
+2.      Transit Cost Dataset – (https://transitcosts.com/data/)
+
+3.      The Boston Case: The Story of the Green Line Extension – (https://transitcosts.com/city/boston-case-the-story-of-the-green-line-extension/)
+
+4.      Istanbul M1B – LA Purple Line Comparison – (https://transitcosts.com/city/istanbul-m1b-la-purple-line-comparison/)
+
+## Best Model Coefficients
+```{r}
+final_models = list("Global Model"=model_6,
+                    "Asia Model"=modelAS_7,
+                    "Europe Model"=modelEU_5)
+for (i in seq_along(final_models)) {
+  print(names(final_models)[i])
+  print(coeftest(final_models[[i]], vcovHC))
+}
+```
+
+## Model Tables
+
+```{r models_stargazer_table1, results = "asis"}
+stargazer(
+model_1, 
+model_2,
+model_3,
+model_4,
+type = 'latex', header=FALSE, 
+star.cutoffs = c(0.05, 0.01, 0.001),
+se = list(se.model_1, se.model_2,se.model_3,se.model_4),
+column.labels=c("GL1", "GL2", "GL3", "GL4")
+)
+```
+```{r models_stargazer_table2, results = "asis"}
+stargazer(
+model_5,
+model_6,
+model_7,
+type = 'latex', header=FALSE, 
+star.cutoffs = c(0.05, 0.01, 0.001),
+se = list(se.model_5, se.model_6, se.model_7),
+column.labels=c("GL5", "GL6", "GL7")
+)
+```
+> Note: We choose model 6 over model 7, because addition of length caused collinearity which diminishes the effect of number of stations.
+
+```{r}
+#for (i in seq_along(models_gb)) {
+#  print(coeftest(models_gb[[i]], vcovHC))
+#}
+```
+```{r}
+#for (i in seq_along(models_gb)) {
+#  par(mfrow=c(2,2))
+#  plot(models_gb[[i]])
+#  par(mfrow=c(1,1))
+#  title(names(models_gb)[i], line=-21, outer=TRUE)
+#}
+```
+```{r}
+#anova(model_5, model_6)
+```
+
+
+
+```{r models_AS_table1, results = "asis"}
+stargazer(
+modelAS_1, 
+modelAS_2,
+modelAS_3,
+modelAS_4,
+type = 'latex', header=FALSE,
+star.cutoffs = c(0.05, 0.01, 0.001),
+se = list(se.modelAS_1, se.modelAS_2,se.modelAS_3,se.modelAS_4),
+column.labels=c("AS1", "AS2", "AS3", "AS4")
+)
+```
+```{r models_AS_table2, results = "asis"}
+stargazer(
+modelAS_5,
+modelAS_6,
+modelAS_7,
+type = 'latex', header=FALSE,
+star.cutoffs = c(0.05, 0.01, 0.001),
+se = list(se.modelAS_5, se.modelAS_6, se.modelAS_7),
+column.labels=c("AS5", "AS6", "AS7")
+)
+```
+> Note we choose model 7 over model 6, because the length does not show collinearity with number of stations when we look at Asia data. 
+
+```{r}
+#for (i in seq_along(models_asia)) {
+#  print(coeftest(models_asia[[i]], vcovHC))
+#}
+
+```
+```{r}
+#for (i in seq_along(models_asia)) {
+#  par(mfrow=c(2,2))
+#  plot(models_asia[[i]])
+#  par(mfrow=c(1,1))
+#  title(names(models_asia)[i], line=-21, outer=TRUE)
+#}
+```
+
+
+```{r models_EU_table1, results = "asis"}
+stargazer(
+modelEU_1, 
+modelEU_2,
+modelEU_3,
+type = 'latex', header=FALSE,
+star.cutoffs = c(0.05, 0.01, 0.001),
+se = list(se.modelEU_1, se.modelEU_2,se.modelEU_3,se.modelEU_4),
+column.labels=c("EU1", "EU2", "EU3")
+)
+```
+```{r models_EU_table2, results = "asis"}
+stargazer(
+modelEU_4,
+modelEU_5,
+modelEU_6,
+type = 'latex', header=FALSE,
+star.cutoffs = c(0.05, 0.01, 0.001),
+se = list(
+          se.modelEU_4, se.modelEU_5, se.modelEU_6),
+column.labels=c("EU4", "EU5", "EU6")
+)
+```
+```{r models_EU_table3, results = "asis"}
+stargazer(
+modelEU_7, 
+modelEU_8,
+modelEU_9,
+type = 'latex', header=FALSE,
+star.cutoffs = c(0.05, 0.01, 0.001),
+se = list(se.modelEU_1, se.modelEU_2,se.modelEU_3,se.modelEU_4),
+column.labels=c("EU7", "EU8", "EU9")
+)
+```
+> Note: We should choose model 5, because addition of number of stations and length has collinearity with total tunnel length. While model 8 has the higher R^2, we believe the strong corelation between length and cost is a concern for data leakage.
+
+```{r}
+#for (i in seq_along(models_eu)) {
+#  print(coeftest(models_eu[[i]], vcovHC))
+#}
+```
+```{r}
+#for (i in seq_along(models_eu)) {
+#  par(mfrow=c(2,2))
+#  plot(models_eu[[i]])
+#  par(mfrow=c(1,1))
+#  title(names(models_eu)[i], line=-21, outer=TRUE)
+#}
+```
