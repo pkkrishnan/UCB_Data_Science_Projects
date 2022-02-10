@@ -1,0 +1,53 @@
+
+Prakash Krishnan, Data Science Portfolio, Updated February 10, 2022
+
+Object Oriented Programming Project in Python : Application for a business to manage employees, budget and a product list
+Links to code
+https://github.com/pkkrishnan/UCB_Data_Science_Projects/blob/main/Python_OOP_Project/Redesigned_flowers_menu.py
+
+https://github.com/pkkrishnan/UCB_Data_Science_Projects/blob/main/Python_OOP_Project/Redesigned_flowers_module.py
+
+Link to proposal
+https://github.com/pkkrishnan/UCB_Data_Science_Projects/blob/main/Python_OOP_Project/Project_1_Proposal_W200_prakash_krishnan.pdf
+
+------------------------------------
+Pandas Project: Track Covid Cases Nationally and in California
+Links to code
+https://github.com/pkkrishnan/UCB_Data_Science_Projects/blob/main/Pandas_Project/US_COVID-19_National_Data_Analysis.ipynb
+
+https://github.com/pkkrishnan/UCB_Data_Science_Projects/blob/main/Pandas_Project/revised_explore_CA_data.ipynb
+
+Links to Report
+https://github.com/pkkrishnan/UCB_Data_Science_Projects/blob/main/Pandas_Project/CoviTrac_Final_Report.pdf
+------------------------------------
+
+Regression Project in R: Identify the key contributing features that impact the cost of a rapid transit project.
+Links to code
+https://github.com/pkkrishnan/UCB_Data_Science_Projects/blob/main/OLS_Regression_Project/lab2_w203_eels_final%20(2).Rmd
+
+Links to Report
+https://github.com/pkkrishnan/UCB_Data_Science_Projects/blob/main/OLS_Regression_Project/lab2_w203_eels_submittable.pdf
+
+------------------------------------
+Research Design Project: 
+
+The African elephant is the largest animal walking the Earth. Numbering three to five million in the last century, African elephant populations were severely reduced to their current levels because of hunting. The purpose of this study is to utilize the predictive power of using NDVI data to determine the movement of elephants to develop strategic insights for elephant conservation, reduce animal-human conflicts and improve ecological balance.Links to Report
+
+https://github.com/pkkrishnan/UCB_Data_Science_Projects/blob/main/Research_Design_Project/Saving_the_Savannah_For_A_Rainy_Day_Research_Design_(W201_Group_D)_.pdf
+
+------------------------------------
+SQL, Docker, VM Project 1: Demonstration of spinning a VM, Docker Cluster, Running a Anaconda NB and PostgreLinks to code
+
+https://github.com/pkkrishnan/UCB_Data_Science_Projects/blob/main/SQL_Project_1/project_1_1.ipynb
+
+https://github.com/pkkrishnan/UCB_Data_Science_Projects/blob/main/SQL_Project_1/project_1_2.ipynb
+
+https://github.com/pkkrishnan/UCB_Data_Science_Projects/blob/main/SQL_Project_1/project_1_3.ipynb
+
+https://github.com/pkkrishnan/UCB_Data_Science_Projects/blob/main/SQL_Project_1/project_1_4.ipynb
+
+https://github.com/pkkrishnan/UCB_Data_Science_Projects/blob/main/SQL_Project_1/project_1_5.ipynb
+
+https://github.com/pkkrishnan/UCB_Data_Science_Projects/blob/main/SQL_Project_1/project_1_6.ipynb
+
+
